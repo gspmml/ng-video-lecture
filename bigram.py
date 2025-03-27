@@ -1,6 +1,13 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+import time
+import argparse
+
+# Add command line argument parsing
+parser = argparse.ArgumentParser(description='Train a bigram model with specified device')
+parser.add_argument('--device', type=str, choices=['mps', 'cpu'], default='mps', help='Device to run on (mps or cpu)')
+args = parser.parse_args()
 
 # hyperparameters
 batch_size = 32 # how many independent sequences will we process in parallel?
@@ -8,9 +15,12 @@ block_size = 8 # what is the maximum context length for predictions?
 max_iters = 3000
 eval_interval = 300
 learning_rate = 1e-2
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = args.device  # Use the device specified in command line
+print(f"Using device: {device}")
 eval_iters = 200
-# ------------
+
+# Add timer
+start_time = time.time()
 
 torch.manual_seed(1337)
 
@@ -102,11 +112,11 @@ m = model.to(device)
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 for iter in range(max_iters):
-
     # every once in a while evaluate the loss on train and val sets
     if iter % eval_interval == 0:
         losses = estimate_loss()
-        print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        elapsed = time.time() - start_time
+        print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time elapsed: {elapsed:.2f}s")
 
     # sample a batch of data
     xb, yb = get_batch('train')
@@ -116,6 +126,10 @@ for iter in range(max_iters):
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
+
+# Print final timing
+total_time = time.time() - start_time
+print(f"\nTotal training time: {total_time:.2f} seconds")
 
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
